@@ -35,8 +35,7 @@ i_low = 0.0005
 
 #%%
 A = sir.SIR()
-A.set_params(imax, umax, gamma, beta)
-A.find_curves()
+A.set_params([imax, umax, gamma, beta], flag = "bg")
 
 C = sir.CurveSegment(A.sbar, A.imax, 0, A, 1)
 C.s = C.s + displacement

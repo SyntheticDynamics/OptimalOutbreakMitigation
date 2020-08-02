@@ -1213,8 +1213,9 @@ def create_initial_conditions(sys:SIR, displacement:float, i_low:float,
     """
     if start is None and end is None:
         s_inter, i_inter = sys.tau._curve_sol(i_low)
-        C = CurveSegment(sys.sbar, sys.imax, 0, sys, s_inter, size = size / 2)
-        s0 = np.linspace(C.s[-1], 1 - displacement, num = size / 2)
+        C = CurveSegment(sys.sbar, sys.imax, 0, sys, s_inter,
+                         size = int(size / 2))
+        s0 = np.linspace(C.s[-1], 1 - displacement, num = int(size / 2))
         i0 = np.array([i_low] * len(s0))
         s0 = np.concatenate((C.s, s0))
         s0 = s0 + displacement

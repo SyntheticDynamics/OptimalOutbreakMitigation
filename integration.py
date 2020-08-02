@@ -60,8 +60,8 @@ umax = 0.5
 gamma = 0.2
 beta = 0.5
 B = sir.SIR()
-B.set_params(imax, umax, gamma, beta)
-B.find_tau()
+B.set_params([imax, umax, gamma, beta], flag = "bg")
+B._find_tau()
 T = B.tau
 T.get_time(2, 1)
 

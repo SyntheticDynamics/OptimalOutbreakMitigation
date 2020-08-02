@@ -16,8 +16,7 @@ beta = 0.5
 
 #%%
 A = sir.SIR()
-A.set_params(imax, umax, gamma, beta)
-A.find_curves()
+A.set_params([imax, umax, gamma, beta], flag = "bg")
 P3 = A.add_point(0.9, 0.01)
 P5 = A.add_point(0.9, 0.09)
 A.find_regions()

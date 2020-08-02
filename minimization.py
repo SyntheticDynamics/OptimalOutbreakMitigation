@@ -67,8 +67,7 @@ def tra(s_c, point, system):
 
 #%%
 A = sir.SIR()
-A.set_params(0.1, 0.5, 0.2, 0.5)
-A.find_curves()
+A.set_params([0.1, 0.5, 0.2, 0.5], flag = "bg")
 
 P = A.add_point(0.8, 1e-4)
 A.find_regions()
