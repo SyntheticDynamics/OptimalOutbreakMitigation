@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug  3 10:28:46 2020
+
+@author: rmm
+"""
+
+import sir
+import matplotlib.pyplot as plt
+
+#%%
+imax = 0.1
+umax = 0.5
+
+i = 1e-2
+s = 1 - i
+
+#%%
+Est = sir.SIR()
+Est.set_params([imax, umax, 2.0], flag = "r")
+PEst = Est.add_point(s, i)
+Est.find_regions()
+Est.get_shortest()
+MEst = PEst.least_time
+
+Re = sir.SIR()
+Re.set_params([imax, umax, 2.5], flag = "r")
+PRe = Re.add_point(s, i)
+Re.find_regions()
+Re.get_shortest()
+MRe = PRe.least_time
+
+F1 = sir.CurveSegment(s, i, 0, Re, s_end = MEst.segments[0].s[-1])
+F2 = sir.CurveSegment(F1.s[-1], F1.i[-1], umax, Re,
+                      s_end = MEst.s[-1])
+F3 = sir.CurveSegment(F2.s[-1], F2.i[-1], 0, Re, s_end = Re.sbar)
+T = sir.Trajectory(F1, F2, F3)
+T.get_time()
+
+fig, ax = plt.subplots()
+ax.set_xlabel(r"$S$")
+ax.set_ylabel(r"$I$")
+ax.set_xlim(Re.sbar, 1)
+ax.set_ylim(0, Est.imax*1.1)
+ax.plot(Est.tau.s, Est.tau.i, "b-")
+ax.plot(Est.phi.s, Est.phi.i, "r-")
+ax.plot(Est.theta.s, Est.theta.i, "y-")
+ax.plot(Re.tau.s, Re.tau.i, "b:")
+ax.plot(Re.phi.s, Re.phi.i, "r:")
+ax.plot(Re.theta.s, Re.theta.i, "y:")
+ax.plot(MEst.s, MEst.i, "k-")
+ax.plot(MRe.s, MRe.i, "k:")
+ax.plot(T.s, T.i, "g-")
+#ax.plot(F2.s, F2.i, "g-")
+ax.plot(s, i, "k.")
+#fig.savefig("docs/real_est.jpg", format = "jpg")
+#fig.savefig("docs/real_est.pdf", format = "pdf")
+
+#%%
+real = sir.SIR()
+real.set_params([0.1, 0.5, 2.5], flag = "r")
+aprox = sir.SIR()
+aprox.set_params([0.1, 0.5, 2.1], flag = "r")
+p = sir.Point(s, i)
+
+C = sir.Comp(real, aprox, p)
+C.compare()
+
+fig, ax = plt.subplots()
+ax.set_xlabel(r"$S$")
+ax.set_ylabel(r"$I$")
+ax.set_xlim(real.sbar, 1)
+ax.set_ylim(0, aprox.imax*1.1)
+ax.plot(C.real.tau.s, C.real.tau.i, "b:")
+ax.plot(C.real.phi.s, C.real.phi.i, "r:")
+ax.plot(C.estimated.tau.s, C.estimated.tau.i, "b-")
+ax.plot(C.estimated.phi.s, C.estimated.phi.i, "r-")
+ax.plot(C.ideal.s, C.ideal.i, "g:")
+ax.plot(C.reference.s, C.reference.i, "g-")
+ax.plot(C.imitation.s, C.imitation.i, "k-")

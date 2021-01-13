@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.integrate
+import scipy.interpolate
 import warnings
 
 #%%
@@ -147,7 +148,10 @@ class SIR():
         A CurveSegment THAT PASSES THROUGH self.sbar AND self.imax WITH u == 0.
         THE CURVE IS THE LIMIT FOR THE SAFE ZONE.
         """
-        s_range = np.linspace(1, self.sbar, 10000, endpoint = True)
+        s_range = np.linspace(max(1, self.phi.s[0]),
+                              self.sbar,
+                              10000, endpoint
+                              = True)
         i_range = self._curve(s_range, self.sbar, self.imax, 0)
         self.tau = CurveSegment(s_range, i_range, 0, self)
     
@@ -157,7 +161,14 @@ class SIR():
         A CurveSegment THAT PASSES THROUGH self.sstar AND self.imax WITH
         u == self.umax.
         """
-        s_range = np.linspace(1, 0, 10000, endpoint = False)
+        s_range = np.linspace(2, 0, 10000, endpoint = False)
+        i_range = self._curve(s_range, self.sstar, self.imax, self.umax)
+        self.phi = CurveSegment(s_range, i_range, self.umax, self)
+        new_endpoint = self.phi._curve_sol(0)[0]
+        s_range = np.linspace(max(1, new_endpoint),
+                              0,
+                              10000,
+                              endpoint = False)
         i_range = self._curve(s_range, self.sstar, self.imax, self.umax)
         self.phi = CurveSegment(s_range, i_range, self.umax, self)
     
@@ -175,7 +186,10 @@ class SIR():
         s_zero = scipy.optimize.fsolve(self._curve, x0 = s_init[0],
                                        args = (self.sbar, self.imax, 0))
         #print(s_zero)
-        s_range = np.linspace(1, 0, 10000, endpoint = False)
+        s_range = np.linspace(max(1, self.phi.s[0]),
+                              0,
+                              10000,
+                              endpoint = False)
         i_range = self._curve(s_range, s_zero, 0, self.umax)
         self.theta = CurveSegment(s_range, i_range, self.umax, self)
     
@@ -187,14 +201,17 @@ class SIR():
         ABLE TO REACH THE SINGULAR ARC DIRECTLY, BUT WILL HAVE TO GO THROUGH
         self.phi BEFORE.
         """
-        s_range = np.linspace(1, 0, 10000, endpoint = False)
+        s_range = np.linspace(max(1, self.phi.s[0]),
+                              0,
+                              10000,
+                              endpoint = False)
         i_range = self._curve(s_range, self.sstar, self.imax, 0)
         self.rho = CurveSegment(s_range, i_range, 0, self)
     
     
     def _find_curves(self):
-        self._find_tau()
         self._find_phi()
+        self._find_tau()
         self._find_theta()
         self._find_rho()
     
@@ -596,10 +613,10 @@ class LineSegment():
     METHODS:
         get_time: CREATES THE ATTRIBUTE self.time.
     """
-    def __init__(self, s_start, s_end, system, size = 50):
+    def __init__(self, s_start, s_end, i, system, size = 50):
         self.system = system
         self.s = np.linspace(s_start, s_end, num = size)
-        self.i = np.array([self.system.imax]*len(self.s))
+        self.i = np.array([i]*len(self.s))
         self.sstart = s_start
         self.send = s_end
         self.ustart = self.u_from_s(s_start)
@@ -611,6 +628,85 @@ class LineSegment():
         out = ("Line segment:\n"
                "\ts0 = {:.2f}\n"
                "\tsf = {:.2f}\n"
+               "\ti = {:.2f}\n"
+               "\tu = {:.2} to {:.2}\n").format(self.sstart, self.send,
+                                                self.i[0], self.ustart,
+                                                self.uend)
+        if not self.time is None:
+            out += "\tt = {:.2f}\n".format(self.time)
+        return out
+    
+    
+    def __print__(self):
+        out = ("Line segment:\n"
+               "\ts0 = {:.2f}\n"
+               "\tsf = {:.2f}\n"
+               "\ti = {:.2f}\n"
+               "\tu = {:.2} to {:.2}\n").format(self.sstart, self.send,
+                                                self.i[0], self.ustart,
+                                                self.uend)
+        if not self.time is None:
+            out += "\tt = {:.2f}\n".format(self.time)
+        return out
+    
+    
+    def get_time(self, start = None, end = None):
+        """
+        PRETTY SELF-EXPLANATORY. CALCULATES THE TIME NEEDED TO GO FROM start
+        TO end ALONG THE LINE SEGMENT.
+        
+        IN:
+            start: THE INITIAL POINT FOR CALCULATION. DEFAULTS TO self.sstart.
+            end: THE LAST POINT FOR CALCULATION. DEFAULTS TO self.send.
+            I SHOULD CONSIDER DELETING THESE INPUT VARIABLES AS THEY REALLY
+            DON'T CONTRIBUTE MUCH IN THE REAL USE OF THE OBJECT.
+        """
+        if start is None:
+            start = self.sstart
+        if end is None:
+            end = self.send
+        num = start - end
+        denom = self.system.gamma * self.system.imax
+        self.time = num / denom
+    
+    
+    def u_from_s(self, s):
+        """
+        A FUNCTION TO DETERMINE THE VALUE OF u FOR A GIVEN s-COORDINATE ALONG
+        THE SINGULAR ARC OF THE SYSTEM.
+        
+        IN:
+            s: s-COORDINATE FOR WHICH THE VALUE OF u NEEDS TO BE FOUND.
+        
+        OUT:
+            VALUE OF u FOR THE GIVEN s-COORDINATE.
+        """
+        m = self.system.umax / (self.system.sstar - self.system.sbar)
+        b = ((self.system.sbar * self.system.umax)
+             / (self.system.sstar - self.system.sbar))
+        return m*s - b
+    
+
+#%%
+class SingularCurve(LineSegment):
+    """
+    A CLASS THAT REPRESENTS THE SINGULAR CURVE.
+    """
+    def __init__(self, s_start, s_end, system, size = 50):
+        self.system = system
+        self.s = np.linspace(s_start, s_end, num = size)
+        self.i = np.array([self.system.imax]*len(self.s))
+        self.sstart = s_start
+        self.send = s_end
+        self.ustart = self.u_from_s(s_start)
+        self.uend = self.u_from_s(s_end)
+        self.time = None
+    
+    
+    def __repr__(self):
+        out = ("Singular Curve:\n"
+               "\ts0 = {:.2f}\n"
+               "\tsf = {:.2f}\n"
                "\tu = {:.2} to {:.2}\n").format(self.sstart, self.send,
                                                 self.ustart, self.uend)
         if not self.time is None:
@@ -619,7 +715,7 @@ class LineSegment():
     
     
     def __print__(self):
-        out = ("Line segment:\n"
+        out = ("Singular Curve:\n"
                "\ts0 = {:.2f}\n"
                "\tsf = {:.2f}\n"
                "\tu = {:.2} to {:.2}\n").format(self.sstart, self.send,
@@ -664,6 +760,7 @@ class LineSegment():
         b = ((self.system.sbar * self.system.umax)
              / (self.system.sstar - self.system.sbar))
         return m*s - b
+    
     
 
 #%%        
@@ -764,9 +861,9 @@ class TrajectoryCreator():
                                0,
                                self.system,
                                self.u0_imax_intersection[0])
-        self.C2 = LineSegment(self.u0_imax_intersection[0],
-                              self.system.sbar,
-                              self.system)
+        self.C2 = SingularCurve(self.u0_imax_intersection[0],
+                                self.system.sbar,
+                                self.system)
         self.main_trajectory = Trajectory(self.C1, self.C2)
         
         self.trajectories = np.empty([len(self.main_trajectory.s), ],
@@ -788,9 +885,9 @@ class TrajectoryCreator():
                        self.C2.i[point])
             Cx = self._create_branch(Px)
             Tx = Trajectory(self.C1,
-                            LineSegment(self.C2.s[0],
-                                        self.C2.s[point],
-                                        self.system),
+                            SingularCurve(self.C2.s[0],
+                                          self.C2.s[point],
+                                          self.system),
                             Cx)
             self.trajectories[point + len(self.C1.s)] = Tx
         return self.trajectories
@@ -812,7 +909,9 @@ class TrajectoryCreator():
                                self.system.umax,
                                self.system,
                                self.system.sstar)
-        self.C3 = LineSegment(self.system.sstar, self.system.sbar, self.system)
+        self.C3 = SingularCurve(self.system.sstar,
+                                self.system.sbar,
+                                self.system)
         self.main_trajectory = Trajectory(self.C1, self.C2, self.C3)
         
         self.trajectories = np.empty([len(self.C1.s) + len(self.C2.s),],
@@ -835,9 +934,9 @@ class TrajectoryCreator():
             Cx = self._create_branch(Px)
             Tx = Trajectory(self.C1,
                             self.C2,
-                            LineSegment(self.system.sstar,
-                                        self.C3.s[point],
-                                        self.system),
+                            SingularCurve(self.system.sstar,
+                                          self.C3.s[point],
+                                          self.system),
                             Cx)
             self.trajectories[point + len(self.C2.s)] = Tx
         return self.trajectories
@@ -969,7 +1068,7 @@ class Trajectory():
             if isinstance(segment, CurveSegment) and segment.u != 0:
                 #print("Right Here!")
                 return ii
-            elif isinstance(segment, LineSegment):
+            elif isinstance(segment, SingularCurve):
                 #print("Right Here!")
                 return ii
             else:
@@ -1102,7 +1201,7 @@ class MinimumTrajectory():
             Tu = CurveSegment(self.point.s0, self.point.i0, 0,
                               self.system, sc)
             Tu.get_time()
-            Ts = LineSegment(sc, s_c, self.system)
+            Ts = SingularCurve(sc, s_c, self.system)
             Ts.get_time()
             Tc = CurveSegment(s_c, self.system.imax, self.system.umax,
                               self.system)
@@ -1163,7 +1262,7 @@ class MinimumTrajectory():
             Tc1 = CurveSegment(sc, ic, self.system.umax, self.system,
                                self.system.sstar)
             Tc1.get_time()
-            Ts = LineSegment(self.system.sstar, s_c, self.system)
+            Ts = SingularCurve(self.system.sstar, s_c, self.system)
             Ts.get_time()
             Tc2 = CurveSegment(s_c, self.system.imax, self.system.umax,
                                self.system)
@@ -1202,6 +1301,114 @@ class MinimumTrajectory():
 
 
 #%%
+class Comp():
+    """
+    A CLASS WHOSE SOLE PURPOSE IS TO COMPARE THE STUFF BETWEEN MODELS OF
+    ESTIMATED PARAMETERS AND THEIR REAL COUNTERPARTS.
+    """
+    def __init__(self, real:SIR, estimated:SIR, point:Point):
+        self.real = real
+        self.estimated = estimated
+        self.point = point
+    
+    
+    def compare(self):
+        """
+        THIS FUNCTION WILL SERVE TO COMPARE THE "EFFICIENCY" OF THE MODELS WITH
+        REAL AND ESTIMATED PARAMETERS.
+        """
+        self._rp =  self.real.add_point(self.point.s0, self.point.i0)
+        self.real.find_regions()
+        self.real.get_shortest()
+        self._ep =  self.estimated.add_point(self.point.s0, self.point.i0)
+        self.estimated.find_regions()
+        self.estimated.get_shortest()
+        self.ideal = self._rp.least_time
+        self.reference = self._ep.least_time
+        crits = [j.s[-1] for j in self.reference.segments]
+        print(crits)
+        self.imitation = self.imitate(crits)
+        self.ratio = max(self.imitation.i) / self.real.imax
+    
+    
+    def get_criticals(self):
+        """
+        THIS DETERMINES WHICH POINTS ARE THE STARTING AND FINAL POINTS FOR
+        THE SEGMENTS.
+        """
+        return self._crits_3()
+    
+    
+    def _crits_2(self):
+        [a, b] = self.reference.segments
+        c1 = a.s[-1]
+        c2 = b.s[-1]
+        return [c1, c2]
+    
+    
+    def _crits_3(self):
+        [a, b, c] = self.reference.segments
+        c1 = a.s[-1]
+        c2 = b.s[-1]
+        c3 = c.s[-1]
+        return [c1, c2, c3]
+    
+    
+    def _crits_4(self):
+        [a, b, c, d] = self.reference.segments
+        c1 = a.s[-1]
+        c2 = a.s[-1]
+        return [c1, c2]
+    
+    
+    def imitate(self, crits):
+        """
+        THIS CREATES THE "IMITATION" OF THE REFERENCE CURVE IN THE REAL-LIFE
+        SYSTEM.
+        """
+        methods = {2: self._imitate_2,
+                   3: self._imitate_3,
+                   4: self._imitate_4}
+        self.f = methods[len(self.reference.segments)]
+        return self.f(crits)
+    
+    
+    def _imitate_2(self, crits):
+        C1 = CurveSegment(self.point.s0, self.point.i0, 0, self.real,
+                          crits[0])
+        C2 = CurveSegment(C1.s[-1], C1.i[-1], self.real.umax, self.real,
+                          crits[1])
+        FP = CurveSegment(C2.s[-1], C2.i[-1], 0, self.real, self.real.sbar)
+        T = Trajectory(C1, C2, FP)
+        return T
+
+
+    def _imitate_3(self, crits):
+        C1 = CurveSegment(self.point.s0, self.point.i0, 0, self.real,
+                          crits[0])
+        L = LineSegment(crits[0], crits[1], C1.i[-1], self.real)
+        C2 = CurveSegment(L.s[-1], L.i[-1], self.real.umax, self.real,
+                          crits[2])
+        FP = CurveSegment(C2.s[-1], C2.i[-1], 0, self.real,
+                          self.real.sbar)
+        T = Trajectory(C1, L, C2, FP)
+        return T
+
+
+    def _imitate_4(self, crits):
+        C1 = CurveSegment(self.point.s0, self.point.i0, 0, self.real,
+                          crits[0])
+        C2 = CurveSegment(C1.s[-1], C1.i[-1], self.real.umax, self.real,
+                          crits[1])
+        L = LineSegment(crits[1], crits[2], C2.i[-1], self.real)
+        C3 = CurveSegment(L.s[-1], L.i[-1], self.real.umax, self.real,
+                          crits[3])
+        FP = CurveSegment(C3.s[-1], C3.i[-1], 0, self.real, self.real.sbar)
+        T = Trajectory(C1, C2, L, C3, FP)
+        return T
+
+
+#%%
 def create_initial_conditions(sys:SIR, displacement:float, i_low:float,
                               start:float = None, end:float = None,
                               size = 100):
@@ -1211,7 +1418,12 @@ def create_initial_conditions(sys:SIR, displacement:float, i_low:float,
     IS GOING TO BE ANALYZED, THE displacement TO THE RIGHT, AND HOW FAR i_low
     THE LINE SEGMENT IS GOING TO GO.
     """
+    if start is None:
+        start = sys.sbar + displacement
+    if end is None:
+        end = 1 + displacement
     if start is None and end is None:
+        print("This shouldn't happen anymore. Weird if it did.")
         s_inter, i_inter = sys.tau._curve_sol(i_low)
         C = CurveSegment(sys.sbar, sys.imax, 0, sys, s_inter,
                          size = int(size / 2))
@@ -1222,29 +1434,31 @@ def create_initial_conditions(sys:SIR, displacement:float, i_low:float,
         i0 = np.concatenate((C.i, i0))
         return s0, i0
     else:
-        print("Aw lawd this is morE CoMpLIcAtED!")
+        #print("Aw lawd this is morE CoMpLIcAtED!")
         start -= displacement
         end -= displacement
         s_inter, i_inter = sys.tau._curve_sol(i_low)
+        #print(start, end, s_inter, i_inter)
         if start < s_inter and end > s_inter:
-            print("Case 1: mixed bag.")
+            #print("Case 1: mixed bag.")
             istart = sys._curve(start, sys.sbar, sys.imax, 0)
-            C = CurveSegment(start, istart, 0, sys, s_inter, size = size / 2)
-            s0 = np.linspace(C.s[-1], end, num = size / 2)
+            C = CurveSegment(start, istart, 0, sys, s_inter,
+                             size = int(size / 2))
+            s0 = np.linspace(C.s[-1], end, num = int(size / 2))
             i0 = np.array([i_low] * len(s0))
             s0 = np.concatenate((C.s, s0))
             s0 += displacement
             i0 = np.concatenate((C.i, i0))
             return s0, i0
         elif start < s_inter and end <= s_inter:
-            print("Case 2: all in curve.")
-            istart = sys._curve(start, sys.sbar, sys.imax, 0, size = size)
+            #print("Case 2: all in curve.")
+            istart = sys._curve(start, sys.sbar, sys.imax, 0)
             C = CurveSegment(start, istart, 0, sys, end)
             s0 = C.s + displacement
             i0 = C.i
             return s0, i0
         elif start >= s_inter and end > s_inter:
-            print("Case 3: all in straight.")
+            #print("Case 3: all in straight.")
             s0 = np.linspace(start, end, num = size) + displacement
             i0 = np.array([i_low] * len(s0))
             return s0, i0
@@ -1284,16 +1498,77 @@ def find_criticals(s0, fp):
     crit1 = find_relevant_change(fp_diff)
     max_idx = max(np.where(fp == max(fp))[0])
     start = s0[crit1]
-    print(start)
+    #print(start)
     try:
         crit2 = min(np.where(fp_diff[max_idx:] > 0)[0]) + max_idx
         end = s0[crit2]
-        print(end)
+        reached = True
     except:
         warnings.warn(("The tail of the curve is not reachable. "
                        "The commutation curve will be incomplete."), Warning)
         end = s0[-1]
-    return start, end
+        reached = False
+    return start, end, reached
+
+
+#%%
+def find_commutation_curve(system:SIR, displacement = 1e-3, ilow = 5e-4):
+    """
+    A function that takes a SIR system as an argument, and finds its
+    commutation curve.
+    """
+    found = False
+    endpoint = system.phi._curve_sol(ilow)[0]
+    while not found:
+        s0, i0 = create_initial_conditions(system, displacement, ilow,
+                                           end = endpoint)
+        for s, i in zip(s0, i0):
+            system.add_point(s, i)
+        
+        system.find_regions()
+        system.get_shortest()
+        M = np.array([p.least_time for p in system.points])
+        
+        final_point = np.array([tra.s[-1] for tra in M])
+        st, end, found = find_criticals(s0, final_point)
+        forced = system.phi._curve_sol(ilow)
+        last = max(forced)
+        system.remove_all_points()
+    
+    s0, i0 = create_initial_conditions(system, displacement, ilow, start = st,
+                                       end = end)
+    system.remove_all_points()
+    for s, i in zip(s0, i0):
+        system.add_point(s, i)
+    
+    system.find_regions()
+    system.get_shortest()
+    M = np.array([p.least_time for p in system.points])
+    
+    cp_s = np.zeros(np.shape(M))
+    cp_i = np.zeros(np.shape(M))
+    for ii in range(np.shape(M)[0]):
+        x, y = find_max(M[ii])
+        cp_s[ii] = x
+        cp_i[ii] = y
+    
+    system.commutation_curve = [cp_s, cp_i]
+
+
+#%%
+def u_smooth(sys, error = 1e-6):
+    """
+    A FUNCTION LIKE THE CONTROL, BUT "SMOOTHENED" SO THAT A CONTINUOUS METHOD
+    FOR INTEGRATION CAN BE USED.
+    """
+    return 0
+
+
+#%%
+def phi(sys):
+    phi = scipy.interpolate.interp1d(sys.phi.s, sys.phi.i, kind = "cubic")
+    first = np.linspace(0, sys.sstar)
+    
 
 #%%
 if __name__ == "__main__":
