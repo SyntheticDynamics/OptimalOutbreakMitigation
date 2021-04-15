@@ -1,0 +1,14 @@
+#**/__pycache__/
+#**/.ipynb_checkpoints/
+#.ipynb_checkpoints/*
+#*.ipynb
+#*.swp
+
+# Ignore everything
+*
+
+# Except for sir.py and the notebook
+!sir.py
+!epidemic_control.ipynb
+!.gitignore
+!README.md
