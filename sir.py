@@ -1080,10 +1080,10 @@ class Trajectory():
     def plot_time(self):
         St = [s.time for s in self.segments]
         St = [[0, t] for t in St]
-        print(St)
+        #print(St)
         Su = [[s.ustart, s.uend] for s in self.segments]
         Su = [z for y in Su for z in y]
-        print(Su)
+        #print(Su)
         fig, ax = plt.subplots()
         ax.set_xlabel(r"$t$")
         ax.set_ylabel(r"$u$")
@@ -1565,10 +1565,84 @@ def u_smooth(sys, error = 1e-6):
 
 
 #%%
-def phi(sys):
-    phi = scipy.interpolate.interp1d(sys.phi.s, sys.phi.i, kind = "cubic")
-    first = np.linspace(0, sys.sstar)
+def tau(s, sys):
+    """
+    A FUNCTION THAT IS MORE LIKE WHAT MARCO AND FERNANDO WERE USING FOR THE
+    REFERENCE CURVES. BASICALLY, YOU GIVE IT A COORDINATE IN s, AND IT GIVES
+    YOU AN i-VALUE DEPENDING ON WHERE ON THE REFERENCE CURVE s IS:
+        IF TOO SMALL, GIVES i_max
+        IF TOO BIG, GIVES 0
+        IF IN BETWEEN, GIVES THE i-VALUE DEPENDING ON THE CURVE.
+    """
+    tt = scipy.interpolate.interp1d(sys.tau.s, sys.tau.i, kind = "cubic")
+    if s < sys.sbar:
+        return sys.imax
+    elif s >= sys.sbar and s < sys.tau._curve_sol()[0]:
+        return tt(s)
+    else:
+        return 0
+
+
+#%%
+def phi(s, sys):
+    """
+    A FUNCTION THAT IS MORE LIKE WHAT MARCO AND FERNANDO WERE USING FOR THE
+    REFERENCE CURVES. BASICALLY, YOU GIVE IT A COORDINATE IN s, AND IT GIVES
+    YOU AN i-VALUE DEPENDING ON WHERE ON THE REFERENCE CURVE s IS:
+        IF TOO SMALL, GIVES i_max
+        IF TOO BIG, GIVES 0
+        IF IN BETWEEN, GIVES THE i-VALUE DEPENDING ON THE CURVE.
+    """
+    pp = scipy.interpolate.interp1d(sys.phi.s, sys.phi.i, kind = "cubic")
+    if s < sys.sstar:
+        return sys.imax
+    elif s >= sys.sstar and s < sys.phi._curve_sol()[0]:
+        return pp(s)
+    else:
+        return 0
+
+
+#%%
+def com_curve(s, sys):
+    """
+    A FUNCTION THAT IS MORE LIKE WHAT MARCO AND FERNANDO WERE USING FOR THE
+    REFERENCE CURVES. BASICALLY, YOU GIVE IT A COORDINATE IN s, AND IT GIVES
+    YOU AN i-VALUE DEPENDING ON WHERE ON THE REFERENCE CURVE s IS:
+        IF TOO SMALL, GIVES i_max
+        IF TOO BIG, GIVES 0
+        IF IN BETWEEN, GIVES THE i-VALUE DEPENDING ON THE CURVE.
+    """
+    cc = scipy.interpolate.interp1d(sys.commutation_curve[0],
+                                    sys.commutation_curve[1],
+                                    kind = "cubic")
+    if s < sys.commutation_curve[0][-1]:
+        return sys.imax
+    elif s >= sys.commutation_curve[0][-1] and s < sys.commutation_curve[0][0]:
+        return cc(s)
+    else:
+        return 0    
+
+
+#%%
+def plot_curves(system):
+    fig, ax = plt.subplots()
+    ax.set_xlim(system.sbar, 1)
+    ax.set_ylim(0, system.imax * 1.1)
     
+    s = list(np.linspace(0, 1))
+    T = [tau(si, system) for si in s]
+    P = [phi(si, system) for si in s]
+    C = [com_curve(si, system) for si in s]
+    
+    ax.plot(s, T)
+    ax.plot(s, P)
+    ax.plot(s, C)
+    ax.fill_between(s, T, 0, facecolor = "blue", alpha = 0.5)
+    ax.fill_between(s, C, P, facecolor = "blue", alpha = 0.5)
+    ax.fill_between(s, P, 1, facecolor = "red", alpha = 0.5)
+    ax.fill_between(s, T, C, facecolor = "red", alpha = 0.5)
+    #return fig
+
 
 #%%
 if __name__ == "__main__":
