@@ -3,6 +3,6 @@ Repository for the paper "A simple criterion to  design optimal  non-pharmaceuti
 
 Preprint: https://www.medrxiv.org/content/10.1101/2020.05.19.20107268v2.article-metrics
 
-The repository contains the code necessary to calculate the optimal non-pharmaceutical interventions (NPIs) in the Susceptible-Infected-Removed model. These NPIs are optimal in the sense that they have the minimal effective duration (thus minimizing the societal and economic costs) while maintaining the disease prevalence below a predefined level I_max (e.g., the maximum capacity for the health services for the specific outbreak). See details in the above paper.
+The repository contains the code necessary to calculate the optimal non-pharmaceutical interventions (NPIs) in the Susceptible-Infected-Removed model. These NPIs are optimal in the sense that they have the minimal effective duration (thus minimizing the societal and economic costs) while maintaining the disease prevalence below a predefined level I_max (e.g., the maximum capacity for the health services for the specific outbreak).  The Jupyter Notebook epidemic_control.ipynb shows how to calculate these optimal NPIs. See theoretical details in the above paper.
 
 Code written by Rodrigo Moreno-Morton, with inputs by Fernando Castaños.
